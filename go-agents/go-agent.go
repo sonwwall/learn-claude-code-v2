@@ -19,6 +19,10 @@ import (
 // 一些全局变量
 const (
 	MaxTokens = 8000
+	ColorReset  = "\033[0m"
+	ColorCyan   = "\033[36m"
+	ColorGreen  = "\033[32m"
+	ColorYellow = "\033[33m"
 )
 
 type AppConfig struct {
@@ -148,7 +152,7 @@ func ExecuteBashTool(toolUse anthropic.ToolUseBlock) anthropic.ContentBlockParam
 	if isDangerousCommand(input.Command) {
 		return anthropic.NewToolResultBlock(toolUse.ID, "Error: dangerous command blocked", true)
 	}
-	fmt.Printf("$ %s\n", input.Command)
+	fmt.Printf("%s$ %s%s\n", ColorYellow, input.Command, ColorReset)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -223,7 +227,7 @@ func RunOneTurn(state *LoopState, client *anthropic.Client, config AppConfig) bo
 	state.Messages = append(state.Messages, response.ToParam())
 	finalText := extractText(response.Content)
 	if finalText != "" {
-		fmt.Println(finalText)
+		fmt.Printf("%sassistant >> %s%s\n\n", ColorGreen, finalText, ColorReset)
 		fmt.Println()
 	}
 
@@ -243,6 +247,7 @@ func RunOneTurn(state *LoopState, client *anthropic.Client, config AppConfig) bo
 		}
 	}
 
+	// 没有工具结果，结束循环
 	if len(toolResults) == 0 {
 		state.TransitionReason = ""
 		return false
@@ -255,6 +260,7 @@ func RunOneTurn(state *LoopState, client *anthropic.Client, config AppConfig) bo
 
 }
 
+// Agent循环
 func AgentLoop(state *LoopState, client *anthropic.Client, config AppConfig) {
 	for RunOneTurn(state, client, config) {
 	}
@@ -278,16 +284,18 @@ func main() {
 	history := make([]anthropic.MessageParam, 0)
 
 	for {
-		fmt.Print("go-agent >> ")
+		fmt.Printf("%sgo-agent >> %s", ColorCyan, ColorReset)
 		if !scanner.Scan() {
 			break
 		}
 
+		// 读取用户输入，如果输入为空或者是"q"或"exit"，则退出循环
 		query := strings.TrimSpace(scanner.Text())
 		if query == "" || query == "q" || query == "exit" {
 			break
 		}
 
+		// 将用户输入添加到对话历史中，并进入Agent循环
 		history = append(history, anthropic.NewUserMessage(anthropic.NewTextBlock(query)))
 		state := LoopState{
 			Messages:         history,
